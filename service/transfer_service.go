@@ -19,7 +19,6 @@ package service
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 	"sync"
 	"time"
@@ -118,9 +117,9 @@ func (s *TransferService) run() error {
 	s.wg.Add(1)
 	go func(p mysql.Position) {
 		s.canalEnable.Store(true)
-		log.Println(fmt.Sprintf("transfer run from position(%s %d)", p.Name, p.Pos))
+		logs.Infof("transfer run from position(%s %d)", p.Name, p.Pos)
 		if err := s.robustCanal.RunFrom(p); err != nil {
-			log.Println(fmt.Sprintf("start transfer : %v", err))
+			logs.Errorf("start transfer : %v", err)
 			logs.Errorf("robust canal : %v", errors.ErrorStack(err))
 			if s.canalHandler != nil {
 				s.canalHandler.stopListener()
@@ -201,7 +200,7 @@ func (s *TransferService) stopDump() {
 	s.robustCanal.Close()
 	s.wg.Wait()
 
-	log.Println("dumper stopped")
+	logs.Info("dumper stopped")
 }
 
 func (s *TransferService) Close() {
@@ -375,7 +374,7 @@ func (s *TransferService) startLoop() {
 				if !s.endpointEnable.Load() {
 					err := s.endpoint.Ping()
 					if err != nil {
-						log.Println("destination not available,see the log file for details")
+						logs.Warnf("destination not available,see the log file for details")
 						logs.Error(err.Error())
 					} else {
 						s.endpointEnable.Store(true)
