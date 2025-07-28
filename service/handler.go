@@ -37,13 +37,17 @@ func newHandler() *handler {
 // e: 轮转事件，包含新的 binlog 文件名和起始位置
 func (s *handler) OnRotate(header *replication.EventHeader, e *replication.RotateEvent) error {
 	// 记录轮转事件的详细信息，便于调试和监控
-	logs.Infof("Binlog rotate event: from position %d to file %s at position %d",
+	// 注意：header.LogPos 是旧文件中ROTATE事件的位置，e.Position 是新文件的起始位置
+	logs.Infof("Binlog rotate event: ROTATE at old file position %d, switch to file %s at position %d",
 		header.LogPos, string(e.NextLogName), e.Position)
 
-	// 将位置更新请求放入队列，Force=true 表示强制保存位置
+	// 关键决策：必须使用 e.Position 而不是 header.LogPos
+	// 原因：header.LogPos = 旧文件中ROTATE事件的位置
+	//      e.Position = 新文件的起始位置（通常是4，binlog文件头大小）
+	// 我们需要保存新文件的起始位置以便后续从新文件读取
 	s.queue <- model.PosRequest{
 		Name:  string(e.NextLogName), // 新的 binlog 文件名
-		Pos:   uint32(e.Position),    // 新文件的起始位置
+		Pos:   uint32(e.Position),    // 必须用新文件起始位置，不能用header.LogPos
 		Force: true,                  // 强制保存，确保位置信息及时更新
 	}
 	return nil
@@ -79,27 +83,34 @@ func (s *handler) OnTableChanged(header *replication.EventHeader, schema, table 
 func (s *handler) OnDDL(header *replication.EventHeader, nextPos mysql.Position, queryEvent *replication.QueryEvent) error {
 	// 记录 DDL 事件的详细信息
 	if queryEvent != nil {
-		logs.Infof("DDL event: %s at position %s:%d, header position: %d",
+		logs.Infof("DDL event: %s at nextPos %s:%d, header.LogPos: %d",
 			string(queryEvent.Query), nextPos.Name, nextPos.Pos, header.LogPos)
 	}
 
-	// 确定要保存的位置信息
-	pos := nextPos
+	// 位置选择策略分析：
+	// nextPos.Pos - 下一个事件的起始位置（DDL事件之后的位置）
+	// header.LogPos - 当前DDL事件的结束位置
+	// 理论上：nextPos.Pos 应该等于 header.LogPos（或者非常接近）
 
-	// 如果 nextPos 信息不完整，使用 header 中的位置信息作为补充
+	pos := nextPos // 优先使用 nextPos，因为它指向下一个事件的位置
+
+	// 如果 nextPos 信息不完整，使用 header.LogPos 作为备选
 	if pos.Name == "" || pos.Pos == 0 {
-		logs.Warnf("nextPos is incomplete (%s:%d), using header position %d",
+		logs.Warnf("nextPos is incomplete (%s:%d), fallback to header.LogPos %d",
 			pos.Name, pos.Pos, header.LogPos)
-		// 注意：这里需要获取当前 binlog 文件名，header 中没有文件名信息
 		if header.LogPos > 0 {
 			pos.Pos = header.LogPos
 		}
+	} else if header.LogPos > 0 && pos.Pos != header.LogPos {
+		// 🔍 调试信息：记录位置差异，帮助分析问题
+		logs.Debugf("Position difference detected: nextPos=%d, header.LogPos=%d, diff=%d",
+			pos.Pos, header.LogPos, int64(pos.Pos)-int64(header.LogPos))
 	}
 
 	// 将位置更新请求放入队列，DDL 事件需要强制保存位置
 	s.queue <- model.PosRequest{
 		Name:  pos.Name, // binlog 文件名
-		Pos:   pos.Pos,  // 位置偏移量
+		Pos:   pos.Pos,  // 使用 nextPos，因为我们需要从下一个事件开始读取
 		Force: true,     // DDL 事件强制保存，确保一致性
 	}
 	return nil
@@ -111,21 +122,37 @@ func (s *handler) OnDDL(header *replication.EventHeader, nextPos mysql.Position,
 // nextPos: 下一个事件的位置
 func (s *handler) OnXID(header *replication.EventHeader, nextPos mysql.Position) error {
 	// 记录事务提交事件
-	logs.Debugf("XID event: transaction committed at position %s:%d, header position: %d",
+	logs.Debugf("XID event: nextPos %s:%d, header.LogPos: %d",
 		nextPos.Name, nextPos.Pos, header.LogPos)
 
-	// 使用 header 中的位置信息，通常比 nextPos 更精确
+	// 位置选择策略分析：
+	// nextPos.Pos - 下一个事件的起始位置（XID事件之后的位置）
+	// header.LogPos - 当前XID事件的结束位置
+	// 对于XID事件：nextPos.Pos 通常等于 header.LogPos
+
 	pos := nextPos
-	if header != nil && header.LogPos > 0 {
-		// 优先使用 header 中的位置，它表示当前事件结束后的位置
-		pos.Pos = header.LogPos
-		logs.Debugf("Using header position %d instead of nextPos %d", header.LogPos, nextPos.Pos)
+
+	// 对于XID事件，我们应该优先使用哪个位置？
+	// 选择策略：优先使用 nextPos，但如果 header.LogPos 更大，则使用 header.LogPos
+	// 原因：确保位置的单调递增，避免位置回退
+	if header.LogPos > 0 {
+		if header.LogPos > pos.Pos {
+			// header.LogPos 更大，使用它确保位置不回退
+			logs.Debugf("Using header.LogPos %d (larger than nextPos %d)", header.LogPos, pos.Pos)
+			pos.Pos = header.LogPos
+		} else if header.LogPos < pos.Pos {
+			// nextPos 更大，记录差异但仍使用 nextPos
+			logs.Debugf("Using nextPos %d (larger than header.LogPos %d)", pos.Pos, header.LogPos)
+		} else {
+			// 两者相等，这是正常情况
+			logs.Debugf("nextPos equals header.LogPos: %d", pos.Pos)
+		}
 	}
 
 	// 将位置更新请求放入队列，Force=false 表示可以批量保存
 	s.queue <- model.PosRequest{
 		Name:  pos.Name, // binlog 文件名
-		Pos:   pos.Pos,  // 位置偏移量
+		Pos:   pos.Pos,  // 使用经过比较后的最大位置值
 		Force: false,    // 非强制保存，可以批量处理以提高性能
 	}
 	return nil
