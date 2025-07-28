@@ -2,8 +2,8 @@ package httpclient
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"testing"
 )
 
@@ -105,7 +105,7 @@ func TestHttpClientPostForm(t *testing.T) {
 		t.Error("Status Code not 200")
 	}
 
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := os.ReadAll(res.Body)
 	if nil != err {
 		t.Error("read failed", err)
 	}
@@ -147,7 +147,7 @@ func TestHttpClientPostJson(t *testing.T) {
 		t.Error("Status Code not 200")
 	}
 
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := os.ReadAll(res.Body)
 	if nil != err {
 		t.Error("read failed", err)
 	}
@@ -175,7 +175,7 @@ func TestHttpClientPostMultipart(t *testing.T) {
 		t.Error("Status Code not 200")
 	}
 
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := os.ReadAll(res.Body)
 	if nil != err {
 		t.Error("read failed", err)
 	}
@@ -210,7 +210,7 @@ func TestHttpClientPutForm(t *testing.T) {
 		t.Error("Status Code not 200")
 	}
 
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := os.ReadAll(res.Body)
 	if nil != err {
 		t.Error("read failed", err)
 	}
@@ -247,7 +247,7 @@ func TestHttpClientPutJson(t *testing.T) {
 		t.Error("Status Code not 200")
 	}
 
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := os.ReadAll(res.Body)
 	if nil != err {
 		t.Error("read failed", err)
 	}
@@ -257,7 +257,7 @@ func TestHttpClientPutJson(t *testing.T) {
 
 func TestResources(t *testing.T) {
 	entity, err := DefaultClient.
-		AddHeader("Authorization","adc8620e5164462e854f6f2e4e33ee53").
+		AddHeader("Authorization", "adc8620e5164462e854f6f2e4e33ee53").
 		GET("http://localhost:8090/portal/users/admin/resources").
 		DoForEntity()
 
@@ -265,5 +265,5 @@ func TestResources(t *testing.T) {
 		fmt.Println(err)
 	}
 
-	fmt.Println("RespondText:",entity.DataAsString())
+	fmt.Println("RespondText:", entity.DataAsString())
 }

@@ -19,8 +19,9 @@ package global
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
+	"path/fil
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -140,7 +141,7 @@ type Cluster struct {
 }
 
 func initConfig(fileName string) error {
-	data, err := ioutil.ReadFile(fileName)
+	data, err := os.ReadFile(fileName)
 	if err != nil {
 		return errors.Trace(err)
 	}

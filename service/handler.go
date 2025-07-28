@@ -22,10 +22,10 @@ import (
 	"log"
 	"time"
 
+	"github.com/go-mysql-org/go-mysql/canal"
+	"github.com/go-mysql-org/go-mysql/mysql"
+	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/juju/errors"
-	"github.com/siddontang/go-mysql/canal"
-	"github.com/siddontang/go-mysql/mysql"
-	"github.com/siddontang/go-mysql/replication"
 
 	"go-mysql-transfer/global"
 	"go-mysql-transfer/model"
@@ -44,7 +44,7 @@ func newHandler() *handler {
 	}
 }
 
-func (s *handler) OnRotate(e *replication.RotateEvent) error {
+func (s *handler) OnRotate(header *replication.EventHeader, e *replication.RotateEvent) error {
 	s.queue <- model.PosRequest{
 		Name:  string(e.NextLogName),
 		Pos:   uint32(e.Position),
@@ -53,7 +53,7 @@ func (s *handler) OnRotate(e *replication.RotateEvent) error {
 	return nil
 }
 
-func (s *handler) OnTableChanged(schema, table string) error {
+func (s *handler) OnTableChanged(header *replication.EventHeader, schema, table string) error {
 	err := _transferService.updateRule(schema, table)
 	if err != nil {
 		return errors.Trace(err)
@@ -61,7 +61,7 @@ func (s *handler) OnTableChanged(schema, table string) error {
 	return nil
 }
 
-func (s *handler) OnDDL(nextPos mysql.Position, _ *replication.QueryEvent) error {
+func (s *handler) OnDDL(header *replication.EventHeader, nextPos mysql.Position, _ *replication.QueryEvent) error {
 	s.queue <- model.PosRequest{
 		Name:  nextPos.Name,
 		Pos:   nextPos.Pos,
@@ -70,12 +70,25 @@ func (s *handler) OnDDL(nextPos mysql.Position, _ *replication.QueryEvent) error
 	return nil
 }
 
-func (s *handler) OnXID(nextPos mysql.Position) error {
+func (s *handler) OnXID(header *replication.EventHeader, nextPos mysql.Position) error {
 	s.queue <- model.PosRequest{
 		Name:  nextPos.Name,
 		Pos:   nextPos.Pos,
 		Force: false,
 	}
+	return nil
+}
+
+// *replication.EventHeader, mysql.BinlogGTIDEvent
+func (s *handler) OnGTID(header *replication.EventHeader, mysqlEvent mysql.BinlogGTIDEvent) error {
+	return nil
+}
+
+func (s *handler) OnPosSynced(header *replication.EventHeader, pos mysql.Position, set mysql.GTIDSet, force bool) error {
+	return nil
+}
+
+func (s *handler) OnRowsQueryEvent(e *replication.RowsQueryEvent) error {
 	return nil
 }
 
@@ -117,14 +130,6 @@ func (s *handler) OnRow(e *canal.RowsEvent) error {
 	}
 	s.queue <- requests
 
-	return nil
-}
-
-func (s *handler) OnGTID(gtid mysql.GTIDSet) error {
-	return nil
-}
-
-func (s *handler) OnPosSynced(pos mysql.Position, set mysql.GTIDSet, force bool) error {
 	return nil
 }
 

@@ -31,6 +31,15 @@ func NewRocketmqLoggerAgent() *RocketmqLoggerAgent {
 	return &RocketmqLoggerAgent{}
 }
 
+func (s *RocketmqLoggerAgent) Level(level string) {
+	// todo
+}
+
+func (s *RocketmqLoggerAgent) OutputPath(path string) (err error) {
+	// todo
+	return nil
+}
+
 func (s *RocketmqLoggerAgent) Debug(msg string, fields map[string]interface{}) {
 	zapFields := make([]zapcore.Field, 0, len(fields))
 	for k, v := range fields {
