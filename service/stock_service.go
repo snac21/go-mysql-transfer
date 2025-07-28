@@ -19,13 +19,14 @@ package service
 
 import (
 	"fmt"
-	"github.com/juju/errors"
-	"github.com/siddontang/go-mysql/canal"
-	"go.uber.org/atomic"
 	"log"
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/go-mysql-org/go-mysql/canal"
+	"github.com/juju/errors"
+	"go.uber.org/atomic"
 
 	"go-mysql-transfer/global"
 	"go-mysql-transfer/model"

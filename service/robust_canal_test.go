@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siddontang/go-mysql/canal"
+	"github.com/go-mysql-org/go-mysql/canal"
 )
 
 func TestRobustCanal_Basic(t *testing.T) {

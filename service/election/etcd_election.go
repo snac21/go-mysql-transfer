@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"go.etcd.io/etcd/clientv3/concurrency"
+	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.uber.org/atomic"
 
 	"go-mysql-transfer/global"

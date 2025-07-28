@@ -26,7 +26,7 @@ import (
 
 	"github.com/samuel/go-zookeeper/zk"
 	"go.etcd.io/bbolt"
-	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/client/v3"
 	etcdlog "go.etcd.io/etcd/pkg/logutil"
 
 	"go-mysql-transfer/global"

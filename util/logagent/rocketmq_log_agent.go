@@ -19,12 +19,20 @@ package logagent
 
 import (
 	"fmt"
-	"go.uber.org/zap/zapcore"
-
 	"go-mysql-transfer/util/logs"
+	"go.uber.org/zap/zapcore"
 )
 
 type RocketmqLoggerAgent struct {
+}
+
+func (s *RocketmqLoggerAgent) Level(level string) {
+	// todo
+}
+
+func (s *RocketmqLoggerAgent) OutputPath(path string) (err error) {
+	// todo
+	return nil
 }
 
 func NewRocketmqLoggerAgent() *RocketmqLoggerAgent {

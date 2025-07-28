@@ -24,10 +24,10 @@ import (
 	"sync"
 	"text/template"
 
+	"github.com/go-mysql-org/go-mysql/schema"
 	"github.com/juju/errors"
-	"github.com/siddontang/go-mysql/schema"
-	"github.com/vmihailenco/msgpack"
-	"github.com/yuin/gopher-lua"
+	"github.com/vmihailenco/msgpack/v5"
+	lua "github.com/yuin/gopher-lua"
 	"github.com/yuin/gopher-lua/parse"
 
 	"go-mysql-transfer/model"

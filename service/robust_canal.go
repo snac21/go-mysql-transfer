@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-mysql-org/go-mysql/canal"
+	"github.com/go-mysql-org/go-mysql/mysql"
+	"github.com/go-mysql-org/go-mysql/replication"
+	"github.com/go-mysql-org/go-mysql/schema"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/siddontang/go-mysql/canal"
-	"github.com/siddontang/go-mysql/mysql"
-	"github.com/siddontang/go-mysql/replication"
-	"github.com/siddontang/go-mysql/schema"
 
 	"go-mysql-transfer/util/logs"
 )
@@ -265,56 +265,65 @@ func (h *sequenceErrorHandler) String() string {
 	return "sequenceErrorHandler"
 }
 
-func (h *sequenceErrorHandler) OnRotate(e *replication.RotateEvent) error {
+func (h *sequenceErrorHandler) OnRotate(header *replication.EventHeader, e *replication.RotateEvent) error {
 	if rotateHandler, ok := h.originalHandler.(interface {
-		OnRotate(*replication.RotateEvent) error
+		OnRotate(*replication.EventHeader, *replication.RotateEvent) error
 	}); ok {
-		return rotateHandler.OnRotate(e)
+		return rotateHandler.OnRotate(header, e)
 	}
 	return nil
 }
 
-func (h *sequenceErrorHandler) OnTableChanged(schema string, table string) error {
+func (h *sequenceErrorHandler) OnTableChanged(header *replication.EventHeader, schema string, table string) error {
 	if tableHandler, ok := h.originalHandler.(interface {
-		OnTableChanged(string, string) error
+		OnTableChanged(*replication.EventHeader, string, string) error
 	}); ok {
-		return tableHandler.OnTableChanged(schema, table)
+		return tableHandler.OnTableChanged(header, schema, table)
 	}
 	return nil
 }
 
-func (h *sequenceErrorHandler) OnDDL(nextPos mysql.Position, queryEvent *replication.QueryEvent) error {
+func (h *sequenceErrorHandler) OnDDL(header *replication.EventHeader, nextPos mysql.Position, queryEvent *replication.QueryEvent) error {
 	if ddlHandler, ok := h.originalHandler.(interface {
-		OnDDL(mysql.Position, *replication.QueryEvent) error
+		OnDDL(*replication.EventHeader, mysql.Position, *replication.QueryEvent) error
 	}); ok {
-		return ddlHandler.OnDDL(nextPos, queryEvent)
+		return ddlHandler.OnDDL(header, nextPos, queryEvent)
 	}
 	return nil
 }
 
-func (h *sequenceErrorHandler) OnXID(nextPos mysql.Position) error {
+func (h *sequenceErrorHandler) OnXID(header *replication.EventHeader, nextPos mysql.Position) error {
 	if xidHandler, ok := h.originalHandler.(interface {
-		OnXID(mysql.Position) error
+		OnXID(*replication.EventHeader, mysql.Position) error
 	}); ok {
-		return xidHandler.OnXID(nextPos)
+		return xidHandler.OnXID(header, nextPos)
 	}
 	return nil
 }
 
-func (h *sequenceErrorHandler) OnGTID(gtid mysql.GTIDSet) error {
+func (h *sequenceErrorHandler) OnGTID(header *replication.EventHeader, gtid mysql.BinlogGTIDEvent) error {
 	if gtidHandler, ok := h.originalHandler.(interface {
-		OnGTID(mysql.GTIDSet) error
+		OnGTID(*replication.EventHeader, mysql.BinlogGTIDEvent) error
 	}); ok {
-		return gtidHandler.OnGTID(gtid)
+		return gtidHandler.OnGTID(header, gtid)
 	}
 	return nil
 }
 
-func (h *sequenceErrorHandler) OnPosSynced(pos mysql.Position, set mysql.GTIDSet, force bool) error {
+func (h *sequenceErrorHandler) OnPosSynced(header *replication.EventHeader, pos mysql.Position, set mysql.GTIDSet, force bool) error {
 	if posHandler, ok := h.originalHandler.(interface {
-		OnPosSynced(mysql.Position, mysql.GTIDSet, bool) error
+		OnPosSynced(*replication.EventHeader, mysql.Position, mysql.GTIDSet, bool) error
 	}); ok {
-		return posHandler.OnPosSynced(pos, set, force)
+		return posHandler.OnPosSynced(header, pos, set, force)
+	}
+	return nil
+}
+
+func (h *sequenceErrorHandler) OnRowsQueryEvent(e *replication.RowsQueryEvent) error {
+	if rowsQueryHandler, ok := h.originalHandler.(interface {
+		OnRowsQueryEvent(*replication.RowsQueryEvent) error
+	}); ok {
+		return rowsQueryHandler.OnRowsQueryEvent(e)
 	}
 	return nil
 }

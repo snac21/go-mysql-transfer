@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"go.etcd.io/etcd/clientv3"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 const _etcdOpsTimeout = 1 * time.Second
