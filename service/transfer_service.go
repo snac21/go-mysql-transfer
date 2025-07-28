@@ -39,7 +39,7 @@ import (
 const _transferLoopInterval = 1
 
 type TransferService struct {
-	canal        *canal.Canal
+	robustCanal  *RobustCanal
 	canalCfg     *canal.Config
 	canalHandler *handler
 	canalEnable  atomic.Bool
@@ -65,7 +65,7 @@ func (s *TransferService) initialize() error {
 	s.canalCfg.Dump.DiscardErr = false
 	s.canalCfg.Dump.SkipMasterData = global.Cfg().SkipMasterData
 
-	if err := s.createCanal(); err != nil {
+	if err := s.createRobustCanal(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -81,11 +81,17 @@ func (s *TransferService) initialize() error {
 	}
 	s.positionDao = positionDao
 
-	// endpoint
-	endpoint := endpoint.NewEndpoint(s.canal)
-	if err := endpoint.Connect(); err != nil {
+	// endpoint - create a temporary canal for endpoint initialization
+	tempCanal, err := canal.NewCanal(s.canalCfg)
+	if err != nil {
 		return errors.Trace(err)
 	}
+	endpoint := endpoint.NewEndpoint(tempCanal)
+	if err := endpoint.Connect(); err != nil {
+		tempCanal.Close()
+		return errors.Trace(err)
+	}
+	tempCanal.Close()
 	// 异步，必须要ping下才能确定连接成功
 	if global.Cfg().IsMongodb() {
 		err := endpoint.Ping()
@@ -113,18 +119,17 @@ func (s *TransferService) run() error {
 	go func(p mysql.Position) {
 		s.canalEnable.Store(true)
 		log.Println(fmt.Sprintf("transfer run from position(%s %d)", p.Name, p.Pos))
-		if err := s.canal.RunFrom(p); err != nil {
+		if err := s.robustCanal.RunFrom(p); err != nil {
 			log.Println(fmt.Sprintf("start transfer : %v", err))
-			logs.Errorf("canal : %v", errors.ErrorStack(err))
+			logs.Errorf("robust canal : %v", errors.ErrorStack(err))
 			if s.canalHandler != nil {
 				s.canalHandler.stopListener()
 			}
 			s.canalEnable.Store(false)
 		}
 
-		logs.Info("Canal is Closed")
+		logs.Info("RobustCanal is Closed")
 		s.canalEnable.Store(false)
-		s.canal = nil
 		s.wg.Done()
 	}(current)
 
@@ -139,9 +144,16 @@ func (s *TransferService) StartUp() {
 
 	if s.firstsStart.Load() {
 		s.canalHandler = newHandler()
-		s.canal.SetEventHandler(s.canalHandler)
+		s.robustCanal.SetEventHandler(s.canalHandler)
 		s.canalHandler.startListener()
 		s.firstsStart.Store(false)
+
+		// Start the robust canal
+		if err := s.robustCanal.Start(); err != nil {
+			logs.Errorf("Failed to start robust canal: %v", err)
+			return
+		}
+
 		s.run()
 	} else {
 		s.restart()
@@ -149,16 +161,23 @@ func (s *TransferService) StartUp() {
 }
 
 func (s *TransferService) restart() {
-	if s.canal != nil {
-		s.canal.Close()
+	if s.robustCanal != nil {
+		s.robustCanal.Close()
 		s.wg.Wait()
 	}
 
-	s.createCanal()
+	s.createRobustCanal()
 	s.addDumpDatabaseOrTable()
 	s.canalHandler = newHandler()
-	s.canal.SetEventHandler(s.canalHandler)
+	s.robustCanal.SetEventHandler(s.canalHandler)
 	s.canalHandler.startListener()
+
+	// Start the robust canal
+	if err := s.robustCanal.Start(); err != nil {
+		logs.Errorf("Failed to start robust canal: %v", err)
+		return
+	}
+
 	s.run()
 }
 
@@ -166,7 +185,7 @@ func (s *TransferService) stopDump() {
 	s.lockOfCanal.Lock()
 	defer s.lockOfCanal.Unlock()
 
-	if s.canal == nil {
+	if s.robustCanal == nil {
 		return
 	}
 
@@ -179,7 +198,7 @@ func (s *TransferService) stopDump() {
 		s.canalHandler = nil
 	}
 
-	s.canal.Close()
+	s.robustCanal.Close()
 	s.wg.Wait()
 
 	log.Println("dumper stopped")
@@ -194,12 +213,12 @@ func (s *TransferService) Position() (mysql.Position, error) {
 	return s.positionDao.Get()
 }
 
-func (s *TransferService) createCanal() error {
+func (s *TransferService) createRobustCanal() error {
 	for _, rc := range global.Cfg().RuleConfigs {
 		s.canalCfg.IncludeTableRegex = append(s.canalCfg.IncludeTableRegex, rc.Schema+"\\."+rc.Table)
 	}
 	var err error
-	s.canal, err = canal.NewCanal(s.canalCfg)
+	s.robustCanal, err = NewRobustCanal(s.canalCfg)
 	return errors.Trace(err)
 }
 
@@ -221,7 +240,13 @@ func (s *TransferService) completeRules() error {
 			}
 			sql := fmt.Sprintf(`SELECT table_name FROM information_schema.tables WHERE
 					table_name RLIKE "%s" AND table_schema = "%s";`, tableName, rc.Schema)
-			res, err := s.canal.Execute(sql)
+			// Use temporary canal for queries
+			tempCanal, err := canal.NewCanal(s.canalCfg)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			res, err := tempCanal.Execute(sql)
+			tempCanal.Close()
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -246,7 +271,13 @@ func (s *TransferService) completeRules() error {
 	}
 
 	for _, rule := range global.RuleInsList() {
-		tableMata, err := s.canal.GetTable(rule.Schema, rule.Table)
+		// Create a temporary canal for table metadata retrieval
+		tempCanal, err := canal.NewCanal(s.canalCfg)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		tableMata, err := tempCanal.GetTable(rule.Schema, rule.Table)
+		tempCanal.Close()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -280,25 +311,34 @@ func (s *TransferService) addDumpDatabaseOrTable() {
 	schemas := make(map[string]int)
 	tables := make([]string, 0, global.RuleInsTotal())
 	for _, rule := range global.RuleInsList() {
-		schema = rule.Table
+		schema = rule.Schema
 		schemas[rule.Schema] = 1
 		tables = append(tables, rule.Table)
 	}
-	if len(schemas) == 1 {
-		s.canal.AddDumpTables(schema, tables...)
-	} else {
-		keys := make([]string, 0, len(schemas))
-		for key := range schemas {
-			keys = append(keys, key)
+
+	if s.robustCanal != nil {
+		if len(schemas) == 1 {
+			s.robustCanal.AddDumpTables(schema, tables...)
+		} else {
+			keys := make([]string, 0, len(schemas))
+			for key := range schemas {
+				keys = append(keys, key)
+			}
+			s.robustCanal.AddDumpDatabases(keys...)
 		}
-		s.canal.AddDumpDatabases(keys...)
 	}
 }
 
 func (s *TransferService) updateRule(schema, table string) error {
 	rule, ok := global.RuleIns(global.RuleKey(schema, table))
 	if ok {
-		tableInfo, err := s.canal.GetTable(schema, table)
+		// Create a temporary canal for table metadata retrieval
+		tempCanal, err := canal.NewCanal(s.canalCfg)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		tableInfo, err := tempCanal.GetTable(schema, table)
+		tempCanal.Close()
 		if err != nil {
 			return errors.Trace(err)
 		}
