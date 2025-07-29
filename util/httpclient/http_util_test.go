@@ -2,6 +2,7 @@ package httpclient
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"testing"
@@ -105,7 +106,7 @@ func TestHttpClientPostForm(t *testing.T) {
 		t.Error("Status Code not 200")
 	}
 
-	data, err := os.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if nil != err {
 		t.Error("read failed", err)
 	}
@@ -147,7 +148,7 @@ func TestHttpClientPostJson(t *testing.T) {
 		t.Error("Status Code not 200")
 	}
 
-	data, err := os.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if nil != err {
 		t.Error("read failed", err)
 	}
@@ -175,7 +176,7 @@ func TestHttpClientPostMultipart(t *testing.T) {
 		t.Error("Status Code not 200")
 	}
 
-	data, err := os.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if nil != err {
 		t.Error("read failed", err)
 	}
@@ -210,7 +211,7 @@ func TestHttpClientPutForm(t *testing.T) {
 		t.Error("Status Code not 200")
 	}
 
-	data, err := os.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if nil != err {
 		t.Error("read failed", err)
 	}
@@ -247,7 +248,7 @@ func TestHttpClientPutJson(t *testing.T) {
 		t.Error("Status Code not 200")
 	}
 
-	data, err := os.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if nil != err {
 		t.Error("read failed", err)
 	}
