@@ -15,76 +15,92 @@
  * limitations under the License.
  * </p>
  */
+
+// Package endpoint 目标端点抽象层
+// 提供统一的接口来支持多种目标系统：Redis、MongoDB、Elasticsearch、Kafka、RabbitMQ、RocketMQ等
+// 通过抽象接口实现了数据传输的解耦，便于扩展新的目标系统
 package endpoint
 
 import (
-	"bytes"
-	"strconv"
-	"strings"
-	"time"
+	"bytes"   // 字节缓冲区操作
+	"strconv" // 字符串和数值转换
+	"strings" // 字符串处理
+	"time"    // 时间处理
 
-	"github.com/go-mysql-org/go-mysql/canal"
-	"github.com/go-mysql-org/go-mysql/mysql"
-	"github.com/go-mysql-org/go-mysql/schema"
-	jsoniter "github.com/json-iterator/go"
+	"github.com/go-mysql-org/go-mysql/canal"  // Canal binlog解析
+	"github.com/go-mysql-org/go-mysql/mysql"  // MySQL协议和类型
+	"github.com/go-mysql-org/go-mysql/schema" // MySQL表结构定义
+	jsoniter "github.com/json-iterator/go"    // 高性能JSON库
 
-	"go-mysql-transfer/global"
-	"go-mysql-transfer/model"
-	"go-mysql-transfer/service/luaengine"
-	"go-mysql-transfer/util/logs"
-	"go-mysql-transfer/util/stringutil"
+	"go-mysql-transfer/global"            // 全局配置和规则
+	"go-mysql-transfer/model"             // 数据模型定义
+	"go-mysql-transfer/service/luaengine" // Lua脚本引擎
+	"go-mysql-transfer/util/logs"         // 日志工具
+	"go-mysql-transfer/util/stringutil"   // 字符串工具
 )
 
+// json 使用高性能的JSON库实例，兼容标准库API
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
+// defaultDateFormatter 默认日期格式化模板
+// 使用Go语言标准的时间格式化模板
 const defaultDateFormatter = "2006-01-02"
 
+// Endpoint 目标端点接口
+// 定义了所有目标系统必须实现的基本操作
+// 通过统一接口实现了对不同目标系统的抽象
 type Endpoint interface {
-	Connect() error
-	Ping() error
-	Consume(mysql.Position, []*model.RowRequest) error
-	Stock([]*model.RowRequest) int64
-	Close()
+	Connect() error                                    // 连接到目标系统
+	Ping() error                                       // 检查连接状态
+	Consume(mysql.Position, []*model.RowRequest) error // 消费增量数据（实时同步）
+	Stock([]*model.RowRequest) int64                   // 处理存量数据（全量导入）
+	Close()                                            // 关闭连接，释放资源
 }
 
+// NewEndpoint 根据配置创建相应的目标端点实例
+// 使用工厂模式，根据全局配置自动选择和创建对应的端点实现
+// ds: Canal实例，用于初始化Lua脚本引擎
+// 返回对应的端点实现，如果配置不匹配则返回nil
 func NewEndpoint(ds *canal.Canal) Endpoint {
-	cfg := global.Cfg()
-	luaengine.InitActuator(ds)
+	cfg := global.Cfg()        // 获取全局配置
+	luaengine.InitActuator(ds) // 初始化Lua脚本执行器
 
+	// 根据配置的目标系统类型创建相应的端点实例
 	if cfg.IsRedis() {
-		return newRedisEndpoint()
+		return newRedisEndpoint() // 创建Redis端点
 	}
 
 	if cfg.IsMongodb() {
-		return newMongoEndpoint()
+		return newMongoEndpoint() // 创建MongoDB端点
 	}
 
 	if cfg.IsRocketmq() {
-		return newRocketEndpoint()
+		return newRocketEndpoint() // 创建RocketMQ端点
 	}
 
 	if cfg.IsRabbitmq() {
-		return newRabbitEndpoint()
+		return newRabbitEndpoint() // 创建RabbitMQ端点
 	}
 
 	if cfg.IsKafka() {
-		return newKafkaEndpoint()
+		return newKafkaEndpoint() // 创建Kafka端点
 	}
 
 	if cfg.IsEls() {
+		// Elasticsearch支持多个版本，根据配置选择对应版本
 		if cfg.ElsVersion == 6 {
-			return newElastic6Endpoint()
+			return newElastic6Endpoint() // 创建Elasticsearch 6.x端点
 		}
 		if cfg.ElsVersion == 7 {
-			return newElastic7Endpoint()
+			return newElastic7Endpoint() // 创建Elasticsearch 7.x端点
 		}
 	}
 
 	if cfg.IsScript() {
-		return newScriptEndpoint()
+		return newScriptEndpoint() // 创建脚本端点（Lua脚本处理）
 	}
 
-	return nil
+	return nil // 未匹配到任何配置，返回nil
 }
 
 func convertColumnData(value interface{}, col *schema.TableColumn, rule *global.Rule) interface{} {

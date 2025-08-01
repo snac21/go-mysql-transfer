@@ -15,44 +15,62 @@
  * limitations under the License.
  * </p>
  */
+
+// Package service 存量数据同步服务模块
+// 提供MySQL数据库存量数据的全量导出和同步功能
+// 支持多线程并发导出、分批处理、断点续传等特性
+// 主要用于项目初始化时的历史数据迁移
 package service
 
 import (
-	"fmt"
-	"github.com/go-mysql-org/go-mysql/canal"
-	"github.com/juju/errors"
-	"go.uber.org/atomic"
-	"log"
-	"regexp"
-	"strings"
-	"sync"
+	"fmt"     // 格式化输出
+	"log"     // 标准日志
+	"regexp"  // 正则表达式
+	"strings" // 字符串处理
+	"sync"    // 同步原语
 
-	"go-mysql-transfer/global"
-	"go-mysql-transfer/model"
-	"go-mysql-transfer/service/endpoint"
-	"go-mysql-transfer/util/dates"
-	"go-mysql-transfer/util/logs"
+	"github.com/go-mysql-org/go-mysql/canal" // MySQL连接和查询
+	"github.com/juju/errors"                 // 错误处理增强
+	"go.uber.org/atomic"                     // 原子操作
+
+	"go-mysql-transfer/global"           // 全局配置和规则
+	"go-mysql-transfer/model"            // 数据模型
+	"go-mysql-transfer/service/endpoint" // 目标端点抽象
+	"go-mysql-transfer/util/dates"       // 日期工具
+	"go-mysql-transfer/util/logs"        // 日志工具
 )
 
-// 存量数据
+// StockService 存量数据同步服务结构体
+// 负责从MySQL数据库中导出历史数据并同步到目标系统
+// 支持多表并发导出、分页查询、进度统计等功能
 type StockService struct {
-	canal    *canal.Canal
-	endpoint endpoint.Endpoint
+	// 数据库连接和目标端点
+	canal    *canal.Canal      // Canal实例，用于连接MySQL数据库
+	endpoint endpoint.Endpoint // 目标端点，用于写入导出的数据
 
-	queueCh       chan []*model.RowRequest
-	counter       map[string]int64
-	lockOfCounter sync.Mutex
-	totalRows     map[string]int64
-	wg            sync.WaitGroup
-	shutoff       *atomic.Bool
+	// 并发控制和数据处理
+	queueCh       chan []*model.RowRequest // 数据队列通道，用于缓存待处理的数据
+	counter       map[string]int64         // 各表的成功导入计数器
+	lockOfCounter sync.Mutex               // 计数器操作锁，保证并发安全
+	totalRows     map[string]int64         // 各表的总行数统计
+	wg            sync.WaitGroup           // 等待组，用于等待所有导出任务完成
+	shutoff       *atomic.Bool             // 关闭标志，用于优雅停止所有导出任务
 }
 
+// NewStockService 创建新的存量数据同步服务实例
+// 初始化所有必要的数据结构和通道，准备执行数据导出任务
+// 返回配置完成的StockService实例
 func NewStockService() *StockService {
 	return &StockService{
-		queueCh:   make(chan []*model.RowRequest, global.Cfg().Maxprocs),
-		counter:   make(map[string]int64),
-		totalRows: make(map[string]int64),
-		shutoff:   atomic.NewBool(false),
+		// 创建数据队列通道，容量等于最大并发数，避免阻塞
+		queueCh: make(chan []*model.RowRequest, global.Cfg().Maxprocs),
+
+		// 初始化统计映射
+		counter:   make(map[string]int64), // 各表成功导入的行数统计
+		totalRows: make(map[string]int64), // 各表总行数统计
+
+		// 初始化关闭标志为false，表示服务正常运行
+		shutoff: atomic.NewBool(false),
 	}
 }
 
