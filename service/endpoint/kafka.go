@@ -300,9 +300,9 @@ func (s *KafkaEndpoint) buildMessage(row *model.RowRequest, rule *global.Rule) (
 
 	// 3. 根据编码规则设置数据内容
 	if rule.ValueEncoder == global.ValEncoderJson {
-		resp.Date = kvm // 直接使用JSON对象
+		resp.Data = kvm // 直接使用JSON对象
 	} else {
-		resp.Date = encodeValue(rule, kvm) // 使用自定义编码
+		resp.Data = encodeValue(rule, kvm) // 使用自定义编码
 	}
 
 	// 4. 如果需要保留原始数据且是UPDATE操作，添加旧数据

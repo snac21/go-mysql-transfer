@@ -252,9 +252,9 @@ func (s *Elastic7Endpoint) Consume(from mysql.Position, rows []*model.RowRequest
 			// 处理Lua脚本生成的所有ES操作
 			for _, resp := range ls {
 				logs.Infof("action: %s, Index: %s , Id:%s, value: %v",
-					resp.Action, resp.Index, resp.Id, resp.Date)
+					resp.Action, resp.Index, resp.Id, resp.Data)
 				// 将操作添加到批量请求中
-				s.prepareBulk(resp.Action, resp.Index, resp.Id, resp.Date, bulk)
+				s.prepareBulk(resp.Action, resp.Index, resp.Id, resp.Data, bulk)
 			}
 		} else {
 			// 使用内置规则处理数据
@@ -326,7 +326,7 @@ func (s *Elastic7Endpoint) Stock(rows []*model.RowRequest) int64 {
 				break
 			}
 			for _, resp := range ls {
-				s.prepareBulk(resp.Action, resp.Index, resp.Id, resp.Date, bulk)
+				s.prepareBulk(resp.Action, resp.Index, resp.Id, resp.Data, bulk)
 			}
 		} else {
 			kvm := rowMap(row, rule, false)

@@ -126,7 +126,7 @@ func DoESOps(input map[string]interface{}, action string, rule *global.Rule) ([]
 		default:
 			data = stringutil.ToJsonString(body)
 		}
-		resp.Date = data
+		resp.Data = data
 		responds = append(responds, resp)
 	})
 

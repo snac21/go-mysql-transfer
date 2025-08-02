@@ -31,7 +31,7 @@ type MQRespond struct {
 	Action    string      `json:"action"`
 	Timestamp uint32      `json:"timestamp"`
 	Raw       interface{} `json:"raw,omitempty"`
-	Date      interface{} `json:"date"`
+	Data      interface{} `json:"data"`
 	ByteArray []byte      `json:"-"`
 }
 
@@ -39,7 +39,7 @@ type ESRespond struct {
 	Index  string
 	Id     string
 	Action string
-	Date   string
+	Data   string
 }
 
 type MongoRespond struct {
