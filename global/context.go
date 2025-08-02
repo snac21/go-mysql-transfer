@@ -13,7 +13,6 @@ import (
 
 var (
 	_pid         int
-	_coordinator int
 	_leaderFlag  bool
 	_leaderNode  string
 	_currentNode string
@@ -64,6 +63,10 @@ func Initialize(configPath string) error {
 		return err
 	}
 	agent := sidlog.New(streamHandler, sidlog.Ltime|sidlog.Lfile|sidlog.Llevel)
+
+	// 根据配置设置Canal日志级别，减少不必要的DDL变更日志
+	canalLogLevel := getCanalLogLevel(_config.CanalLogLevel)
+	agent.SetLevel(canalLogLevel)
 	sidlog.SetDefaultLogger(agent)
 
 	_bootTime = time.Now()
@@ -83,4 +86,20 @@ func Initialize(configPath string) error {
 	logs.Infof("destination: %s", _config.Destination())
 
 	return nil
+}
+
+// getCanalLogLevel 将字符串日志级别转换为Canal日志级别
+func getCanalLogLevel(level string) sidlog.Level {
+	switch level {
+	case "debug":
+		return sidlog.LevelDebug
+	case "info":
+		return sidlog.LevelInfo
+	case "warn":
+		return sidlog.LevelWarn
+	case "error":
+		return sidlog.LevelError
+	default:
+		return sidlog.LevelWarn // 默认为warn级别
+	}
 }

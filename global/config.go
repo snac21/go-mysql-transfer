@@ -82,7 +82,8 @@ type Config struct {
 
 	RuleConfigs []*Rule `yaml:"rule"`
 
-	LoggerConfig *logs.Config `yaml:"logger"` // 日志配置
+	LoggerConfig  *logs.Config `yaml:"logger"`          // 日志配置
+	CanalLogLevel string       `yaml:"canal_log_level"` // Canal日志级别，可选：debug,info,warn,error
 
 	EnableExporter bool `yaml:"enable_exporter"` // 启用prometheus exporter，默认false
 	ExporterPort   int  `yaml:"exporter_addr"`   // prometheus exporter端口
@@ -289,6 +290,11 @@ func checkConfig(c *Config) error {
 
 	if c.RuleConfigs == nil {
 		return errors.Errorf("empty rules not allowed")
+	}
+
+	// 设置Canal日志级别默认值
+	if c.CanalLogLevel == "" {
+		c.CanalLogLevel = "warn" // 默认为warn级别，减少DDL变更日志
 	}
 
 	return nil
