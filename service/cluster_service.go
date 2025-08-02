@@ -22,10 +22,11 @@
 package service
 
 import (
-	"log" // 标准日志
+	// 标准日志
 
 	"go-mysql-transfer/global"  // 全局配置和状态管理
 	"go-mysql-transfer/metrics" // 监控指标
+	"go-mysql-transfer/util/logs"
 )
 
 // ClusterService 集群服务结构体
@@ -40,7 +41,7 @@ type ClusterService struct {
 // 初始化选举过程并启动选举结果监听器
 // 返回启动过程中可能出现的错误
 func (s *ClusterService) boot() error {
-	log.Println("start master election") // 记录选举开始
+	logs.Info("start master election") // 记录选举开始
 
 	// 启动主节点选举过程
 	// 选举服务会与其他节点协商，确定哪个节点作为主节点
@@ -66,7 +67,7 @@ func (s *ClusterService) startElectListener() {
 			select {
 			case selected := <-s.electionSignal:
 				// 收到选举结果信号
-				log.Printf("Election result received: selected=%v", selected)
+				logs.Infof("Election result received: selected=%v", selected)
 
 				// 1. 更新全局状态
 				// 设置当前的主节点信息和本节点的角色标志
@@ -76,7 +77,7 @@ func (s *ClusterService) startElectListener() {
 				// 2. 根据选举结果调整服务状态
 				if selected {
 					// 当前节点被选为主节点
-					log.Println("This node is elected as leader, starting transfer service")
+					logs.Info("This node is elected as leader, starting transfer service")
 
 					// 更新监控指标为主节点状态
 					metrics.SetLeaderState(metrics.LeaderState)
@@ -85,7 +86,7 @@ func (s *ClusterService) startElectListener() {
 					_transferService.StartUp()
 				} else {
 					// 当前节点为从节点
-					log.Println("This node is follower, stopping transfer service")
+					logs.Info("This node is follower, stopping transfer service")
 
 					// 更新监控指标为从节点状态
 					metrics.SetLeaderState(metrics.FollowerState)

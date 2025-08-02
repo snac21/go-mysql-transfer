@@ -24,7 +24,6 @@ package endpoint
 
 import (
 	"bytes"   // 字节缓冲区，用于模板渲染
-	"log"     // 标准日志
 	"strings" // 字符串处理
 
 	// 同步原语（未使用的retryLock字段）
@@ -171,7 +170,7 @@ func (s *RedisEndpoint) Consume(from mysql.Position, rows []*model.RowRequest) e
 
 			// 检查Lua脚本执行结果
 			if err != nil {
-				log.Println("Lua 脚本执行失败!!! ,详情请参见日志")
+				logs.Error("Lua 脚本执行失败!!! ,详情请参见日志")
 				return errors.Errorf("Lua 脚本执行失败 : %s ", errors.ErrorStack(err))
 			}
 

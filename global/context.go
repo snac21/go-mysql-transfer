@@ -1,15 +1,14 @@
 package global
 
 import (
-	"fmt"
-	"log"
 	"runtime"
 	"strconv"
 	"syscall"
 	"time"
 
-	sidlog "github.com/siddontang/go-log/log"
 	"go-mysql-transfer/util/logs"
+
+	sidlog "github.com/siddontang/go-log/log"
 )
 
 var (
@@ -78,10 +77,10 @@ func Initialize(configPath string) error {
 		}
 	}
 
-	log.Println(fmt.Sprintf("process id: %d", _pid))
-	log.Println(fmt.Sprintf("GOMAXPROCS :%d", _config.Maxprocs))
-	log.Println(fmt.Sprintf("source  %s(%s)", _config.Flavor, _config.Addr))
-	log.Println(fmt.Sprintf("destination %s", _config.Destination()))
+	logs.Infof("process id: %d", _pid)
+	logs.Infof("GOMAXPROCS: %d", _config.Maxprocs)
+	logs.Infof("source: %s(%s)", _config.Flavor, _config.Addr)
+	logs.Infof("destination: %s", _config.Destination())
 
 	return nil
 }

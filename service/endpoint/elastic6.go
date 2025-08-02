@@ -23,7 +23,6 @@ package endpoint
 
 import (
 	"context" // 上下文管理
-	"log"     // 标准日志
 	"strings" // 字符串处理
 	"sync"    // 同步原语
 
@@ -262,7 +261,7 @@ func (s *Elastic6Endpoint) Consume(from mysql.Position, rows []*model.RowRequest
 			kvm := rowMap(row, rule, true) // 构建原始数据映射
 			ls, err := luaengine.DoESOps(kvm, row.Action, rule)
 			if err != nil {
-				log.Println("Lua 脚本执行失败!!! ,详情请参见日志")
+				logs.Error("Lua 脚本执行失败!!! ,详情请参见日志")
 				return errors.Errorf("lua 脚本执行失败 : %s ", errors.ErrorStack(err))
 			}
 
@@ -290,7 +289,7 @@ func (s *Elastic6Endpoint) Consume(from mysql.Position, rows []*model.RowRequest
 	// 5. 执行批量操作
 	r, err := bulk.Do(context.Background())
 	if err != nil {
-		log.Println(err.Error())
+		logs.Error(err.Error())
 		return err // 批量操作执行失败
 	}
 
@@ -310,7 +309,7 @@ func (s *Elastic6Endpoint) Consume(from mysql.Position, rows []*model.RowRequest
 				reason = f.Error.Reason
 			}
 
-			log.Println(reason)
+			logs.Error(reason)
 			return errors.New(reason) // 返回第一个错误
 		}
 	}

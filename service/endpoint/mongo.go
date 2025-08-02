@@ -23,7 +23,6 @@ package endpoint
 
 import (
 	"context" // 上下文管理
-	"log"     // 标准日志
 	"strings" // 字符串处理
 	"sync"    // 同步原语
 
@@ -336,7 +335,7 @@ func (s *MongoEndpoint) Stock(rows []*model.RowRequest) int64 {
 			kvm := rowMap(row, rule, true)                         // 将行数据转换为键值映射
 			ls, err := luaengine.DoMongoOps(kvm, row.Action, rule) // 执行Lua脚本
 			if err != nil {
-				log.Println("Lua 脚本执行失败!!! ,详情请参见日志")
+				logs.Error("Lua 脚本执行失败!!! ,详情请参见日志")
 				logs.Errorf("lua 脚本执行失败 : %s ", errors.ErrorStack(err))
 				expect = false // 标记处理失败
 				break          // 退出处理循环

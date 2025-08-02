@@ -24,7 +24,6 @@ package election
 import (
 	"context" // 上下文管理
 	// 格式化输出
-	"log"  // 标准日志
 	"sync" // 同步原语
 	"time" // 时间处理
 
@@ -218,10 +217,10 @@ func (s *etcdElection) Nodes() []string {
 // beLeader 设置当前节点为主节点状态
 // 更新内部状态并通知上层服务
 func (s *etcdElection) beLeader() {
-	s.selected.Store(true)                        // 原子设置为主节点状态
-	s.leader.Store(global.CurrentNode())          // 设置主节点标识为当前节点
-	s.informCh <- s.selected.Load()               // 通知上层服务选举结果
-	log.Println("the current node is the master") // 记录主节点状态
+	s.selected.Store(true)                      // 原子设置为主节点状态
+	s.leader.Store(global.CurrentNode())        // 设置主节点标识为当前节点
+	s.informCh <- s.selected.Load()             // 通知上层服务选举结果
+	logs.Info("the current node is the master") // 记录主节点状态
 }
 
 // beFollower 设置当前节点为从节点状态
@@ -232,5 +231,5 @@ func (s *etcdElection) beFollower(leader string) {
 	s.leader.Store(leader)          // 设置主节点标识
 
 	// 记录从节点状态和主节点信息
-	log.Printf("The current node is the follower, master node is : %s", s.leader.Load())
+	logs.Infof("The current node is the follower, master node is: %s", s.leader.Load())
 }

@@ -23,7 +23,6 @@ package election
 
 import (
 	// 格式化输出
-	"log"  // 标准日志
 	"sync" // 同步原语
 
 	"github.com/samuel/go-zookeeper/zk" // ZooKeeper客户端
@@ -135,10 +134,10 @@ func (s *zkElection) Nodes() []string {
 // beLeader 设置当前节点为主节点状态
 // 更新内部状态并通知上层服务
 func (s *zkElection) beLeader() {
-	s.selected.Store(true)                        // 原子设置为主节点状态
-	s.leader.Store(global.CurrentNode())          // 设置主节点标识为当前节点
-	s.informCh <- s.selected.Load()               // 通知上层服务选举结果
-	log.Println("the current node is the master") // 记录主节点状态
+	s.selected.Store(true)                      // 原子设置为主节点状态
+	s.leader.Store(global.CurrentNode())        // 设置主节点标识为当前节点
+	s.informCh <- s.selected.Load()             // 通知上层服务选举结果
+	logs.Info("the current node is the master") // 记录主节点状态
 }
 
 // beFollower 设置当前节点为从节点状态
@@ -149,7 +148,7 @@ func (s *zkElection) beFollower(leader string) {
 	s.informCh <- s.selected.Load() // 通知上层服务选举结果
 
 	// 记录从节点状态和主节点信息
-	log.Printf("The current node is the follower, master node is : %s", leader)
+	logs.Infof("The current node is the follower, master node is: %s", leader)
 }
 
 // startConnectionWatchTask 启动ZooKeeper连接状态监控任务
@@ -222,7 +221,7 @@ func (s *zkElection) startNodeWatchTask() {
 func (s *zkElection) downgrading() {
 	// 使用原子操作检查并设置降级状态，避免重复降级
 	if !s.downgraded.Load() {
-		log.Println("Lost contact with zookeeper, The current node degraded to Follower")
+		logs.Warn("Lost contact with zookeeper, The current node degraded to Follower")
 		s.downgraded.Store(true) // 设置降级标志
 		s.beFollower("")         // 降级为从节点，主节点未知
 	}

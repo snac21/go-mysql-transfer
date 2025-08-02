@@ -23,8 +23,6 @@ package endpoint
 
 import (
 	"context" // 上下文管理，用于控制请求生命周期
-	"log"     // 标准日志
-
 	// 同步原语（未使用的retryLock字段）
 	"github.com/go-mysql-org/go-mysql/canal" // Canal binlog解析
 	"github.com/go-mysql-org/go-mysql/mysql" // MySQL协议和类型
@@ -245,7 +243,7 @@ func (s *Elastic7Endpoint) Consume(from mysql.Position, rows []*model.RowRequest
 			kvm := rowMap(row, rule, true)                      // 将行数据转换为键值映射
 			ls, err := luaengine.DoESOps(kvm, row.Action, rule) // 执行Lua脚本
 			if err != nil {
-				log.Println("Lua 脚本执行失败!!! ,详情请参见日志")
+				logs.Error("Lua 脚本执行失败!!! ,详情请参见日志")
 				return errors.Errorf("lua 脚本执行失败 : %s ", errors.ErrorStack(err))
 			}
 
@@ -296,7 +294,7 @@ func (s *Elastic7Endpoint) Consume(from mysql.Position, rows []*model.RowRequest
 				reason = f.Error.Reason
 			}
 
-			log.Println(reason)
+			logs.Error(reason)
 			return errors.New(reason) // 返回第一个错误
 		}
 	}

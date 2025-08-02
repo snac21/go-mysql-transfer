@@ -24,7 +24,6 @@ package service
 
 import (
 	"fmt"     // 格式化输出
-	"log"     // 标准日志
 	"regexp"  // 正则表达式
 	"strings" // 字符串处理
 	"sync"    // 同步原语
@@ -99,13 +98,13 @@ func (s *StockService) Run() error {
 
 	endpoint := endpoint.NewEndpoint(s.canal)
 	if err := endpoint.Connect(); err != nil {
-		log.Println(err.Error())
+		logs.Error(err.Error())
 		return errors.Trace(err)
 	}
 	s.endpoint = endpoint
 
 	startTime := dates.NowMillisecond()
-	log.Println(fmt.Sprintf("bulk size: %d", global.Cfg().BulkSize))
+	logs.Infof("bulk size: %d", global.Cfg().BulkSize)
 	for _, rule := range global.RuleInsList() {
 		if rule.OrderByColumn == "" {
 			return errors.New("empty order_by_column not allowed")
@@ -113,7 +112,7 @@ func (s *StockService) Run() error {
 
 		exportColumns := s.exportColumns(rule)
 		fullName := fmt.Sprintf("%s.%s", rule.Schema, rule.Table)
-		log.Println(fmt.Sprintf("开始导出 %s", fullName))
+		logs.Infof("开始导出 %s", fullName)
 
 		res, err := s.canal.Execute(fmt.Sprintf("select count(1) from %s", fullName))
 		if err != nil {
@@ -121,7 +120,7 @@ func (s *StockService) Run() error {
 		}
 		totalRow, err := res.GetInt(0, 0)
 		s.totalRows[fullName] = totalRow
-		log.Println(fmt.Sprintf("%s 共 %d 条数据", fullName, totalRow))
+		logs.Infof("%s 共 %d 条数据", fullName, totalRow)
 
 		s.counter[fullName] = 0
 
@@ -158,14 +157,14 @@ func (s *StockService) Run() error {
 
 	s.wg.Wait()
 
-	fmt.Println(fmt.Sprintf("共耗时 ：%d（毫秒）", dates.NowMillisecond()-startTime))
+	logs.Infof("共耗时：%d（毫秒）", dates.NowMillisecond()-startTime)
 
 	for k, v := range s.totalRows {
 		vv, ok := s.counter[k]
 		if ok {
-			fmt.Println(fmt.Sprintf("表： %s，共：%d 条数据，成功导入：%d 条", k, v, vv))
+			logs.Infof("表：%s，共：%d 条数据，成功导入：%d 条", k, v, vv)
 			if v > vv {
-				fmt.Println("存在导入错误的数据，具体请至日志查看")
+				logs.Warn("存在导入错误的数据，具体请至日志查看")
 			}
 		}
 	}
@@ -231,7 +230,7 @@ func (s *StockService) imports(fullName string, requests []*model.RowRequest) {
 
 	succeeds := s.endpoint.Stock(requests)
 	count := s.incCounter(fullName, succeeds)
-	log.Println(fmt.Sprintf("%s 导入数据 %d 条", fullName, count))
+	logs.Infof("%s 导入数据 %d 条", fullName, count)
 }
 
 func (s *StockService) exportColumns(rule *global.Rule) string {

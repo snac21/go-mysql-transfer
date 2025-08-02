@@ -5,9 +5,18 @@ const (
 	_logLevelInfo    = "info"
 	_logLevelWarn    = "warn"
 	_logLevelError   = "error"
-	_logMaxSize      = 500
-	_logMaxAge       = 30
+	_logMaxSize      = 10 // 每个文件最大10M
+	_logMaxAge       = 7  // 保留7天
 	_logEncodingJson = "json"
+)
+
+// 导出的默认配置常量，供其他包使用
+const (
+	DefaultLogFileName = _logFileName
+	DefaultLogLevel    = _logLevelInfo
+	DefaultMaxSize     = _logMaxSize
+	DefaultMaxAge      = _logMaxAge
+	DefaultEncoding    = "console"
 )
 
 // logger 配置

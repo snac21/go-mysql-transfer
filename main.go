@@ -20,7 +20,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"regexp"
@@ -33,6 +32,7 @@ import (
 	"go-mysql-transfer/metrics"
 	"go-mysql-transfer/service"
 	"go-mysql-transfer/storage"
+	"go-mysql-transfer/util/logs"
 	"go-mysql-transfer/util/stringutil"
 	"go-mysql-transfer/web"
 )
@@ -92,7 +92,7 @@ func main() {
 	// 初始化global
 	err := global.Initialize(cfgPath)
 	if err != nil {
-		println(errors.ErrorStack(err))
+		logs.Errorf("Failed to initialize global: %s", errors.ErrorStack(err))
 		return
 	}
 
@@ -104,7 +104,7 @@ func main() {
 	// 初始化Storage
 	err = storage.Initialize()
 	if err != nil {
-		println(errors.ErrorStack(err))
+		logs.Errorf("Failed to initialize storage: %s", errors.ErrorStack(err))
 		return
 	}
 
@@ -120,17 +120,17 @@ func main() {
 
 	err = service.Initialize()
 	if err != nil {
-		println(errors.ErrorStack(err))
+		logs.Errorf("Failed to initialize service: %s", errors.ErrorStack(err))
 		return
 	}
 
 	if err := metrics.Initialize(); err != nil {
-		println(errors.ErrorStack(err))
+		logs.Errorf("Failed to initialize metrics: %s", errors.ErrorStack(err))
 		return
 	}
 
 	if err := web.Start(); err != nil {
-		println(errors.ErrorStack(err))
+		logs.Errorf("Failed to start web server: %s", errors.ErrorStack(err))
 		return
 	}
 	service.StartUp() // start application
@@ -138,7 +138,7 @@ func main() {
 	s := make(chan os.Signal, 1)
 	signal.Notify(s, os.Kill, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	sin := <-s
-	log.Printf("application stoped，signal: %s \n", sin.String())
+	logs.Infof("application stopped, signal: %s", sin.String())
 
 	web.Close()
 	service.Close()
@@ -148,7 +148,7 @@ func main() {
 func doStock() {
 	stock := service.NewStockService()
 	if err := stock.Run(); err != nil {
-		println(errors.ErrorStack(err))
+		logs.Errorf("Stock service run failed: %s", errors.ErrorStack(err))
 	}
 	stock.Close()
 }
@@ -162,7 +162,7 @@ func doStatus() {
 func doPosition() {
 	others := flag.Args()
 	if len(others) != 2 {
-		println("error: please input the binlog's File and Position")
+		logs.Error("error: please input the binlog's File and Position")
 		return
 	}
 	f := others[0]
@@ -170,13 +170,13 @@ func doPosition() {
 
 	matched, _ := regexp.MatchString(".+\\.\\d+$", f)
 	if !matched {
-		println("error: The parameter File must be like: mysql-bin.000001")
+		logs.Error("error: The parameter File must be like: mysql-bin.000001")
 		return
 	}
 
 	pp, err := stringutil.ToUint32(p)
 	if nil != err {
-		println("error: The parameter Position must be number")
+		logs.Error("error: The parameter Position must be number")
 		return
 	}
 	ps := storage.NewPositionStorage()

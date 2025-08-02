@@ -2,7 +2,6 @@ package service
 
 import (
 	"go-mysql-transfer/metrics"
-	"log"
 	"time"
 
 	"github.com/go-mysql-org/go-mysql/canal"
@@ -451,13 +450,13 @@ func (s *handler) startListener() {
 // stopListener 停止事件监听器
 // 向停止通道发送信号，优雅关闭监听器
 func (s *handler) stopListener() {
-	log.Println("Stopping transfer handler...")
+	logs.Info("Stopping transfer handler...")
 
 	// 发送停止信号到停止通道
 	select {
 	case s.stop <- struct{}{}:
-		log.Println("Stop signal sent successfully")
+		logs.Info("Stop signal sent successfully")
 	default:
-		log.Println("Stop channel is full, handler may already be stopping")
+		logs.Warn("Stop channel is full, handler may already be stopping")
 	}
 }

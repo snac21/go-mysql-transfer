@@ -18,9 +18,9 @@
 package endpoint
 
 import (
-	"github.com/go-mysql-org/go-mysql/canal"
-	"log"
 	"strconv"
+
+	"github.com/go-mysql-org/go-mysql/canal"
 
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/juju/errors"
@@ -170,7 +170,7 @@ func (s *RabbitEndpoint) doLuaConsume(req *model.RowRequest, rule *global.Rule) 
 		ls, err = luaengine.DoMQOps(kvm, nil, req.Action, rule)
 	}
 	if err != nil {
-		log.Println("Lua 脚本执行失败!!! ,详情请参见日志")
+		logs.Error("Lua 脚本执行失败!!! ,详情请参见日志")
 		return errors.Errorf("lua 脚本执行失败 : %s ", err)
 	}
 

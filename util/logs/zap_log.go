@@ -18,7 +18,6 @@
 package logs
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -32,10 +31,11 @@ import (
 )
 
 func NewZapLogger(config *Config, options ...zap.Option) (*zap.Logger, io.Writer, error) {
+	// 设置默认值
 	if config.MaxSize <= 0 {
-		config.MaxSize = _logMaxSize
+		config.MaxSize = 10 // 每个文件最大10M
 	}
-	if config.MaxSize <= 0 {
+	if config.MaxAge <= 0 {
 		config.MaxAge = _logMaxAge
 	}
 	if config.FileName == "" {
@@ -43,16 +43,16 @@ func NewZapLogger(config *Config, options ...zap.Option) (*zap.Logger, io.Writer
 	}
 
 	if err := files.MkdirIfNecessary(config.Store); err != nil {
-		return nil, nil, errors.New(fmt.Sprintf("create log store : %s", err.Error()))
+		return nil, nil, fmt.Errorf("create log store : %s", err.Error())
 	}
 
-	logFile := filepath.Join(config.Store, config.FileName)
-	if succeed := files.CreateFileIfNecessary(logFile); !succeed {
-		return nil, nil, errors.New(fmt.Sprintf("create log file : %s error", logFile))
-	}
+	// 生成带日期的日志文件名，格式：system.log-2025-08-02-1
+	today := time.Now().Format("2006-01-02")
+	baseFileName := config.FileName
+	logFile := filepath.Join(config.Store, fmt.Sprintf("%s-%s", baseFileName, today))
 
-	hook := lumberjack.Logger{ //定义日志分割器
-		Filename:  logFile,         // 日志文件路径
+	hook := lumberjack.Logger{
+		Filename:  logFile,         // 日志文件路径，lumberjack会自动添加索引
 		MaxSize:   config.MaxSize,  // 文件最大M字节
 		MaxAge:    config.MaxAge,   // 最多保留几天
 		Compress:  config.Compress, // 是否压缩
@@ -71,7 +71,7 @@ func NewZapLogger(config *Config, options ...zap.Option) (*zap.Logger, io.Writer
 		zapcore.AddSync(&hook),
 		getZapLevel(config.Level),
 	)
-	return zap.New(core), &hook, nil
+	return zap.New(core, options...), &hook, nil
 }
 
 func getZapLevel(level string) zapcore.Level {

@@ -23,7 +23,6 @@ package service
 
 import (
 	"fmt"    // 格式化输出
-	"log"    // 标准日志
 	"regexp" // 正则表达式处理
 	"sync"   // 同步原语
 	"time"   // 时间处理
@@ -157,14 +156,14 @@ func (s *TransferService) run() error {
 
 		// 3. 启动Canal监听
 		s.canalEnable.Store(true) // 标记Canal为启用状态
-		log.Println(fmt.Sprintf("transfer run from position(%s %d)", p.Name, p.Pos))
+		logs.Infof("transfer run from position(%s %d)", p.Name, p.Pos)
 
 		// 从指定位置开始监听binlog
 		// RunFrom是阻塞调用，会持续监听直到出错或被关闭
 		if err := s.canal.RunFrom(p); err != nil {
 			// Canal运行出错，记录错误信息
-			log.Println(fmt.Sprintf("start transfer : %v", err))
-			logs.Errorf("canal : %v", errors.ErrorStack(err))
+			logs.Errorf("start transfer: %v", err)
+			logs.Errorf("canal: %v", errors.ErrorStack(err))
 
 			// 4. 错误处理：停止事件监听器
 			if s.canalHandler != nil {
@@ -283,7 +282,7 @@ func (s *TransferService) stopDump() {
 	s.canal.Close()
 	s.wg.Wait()
 
-	log.Println("dumper stopped")
+	logs.Info("dumper stopped")
 }
 
 func (s *TransferService) Close() {
@@ -436,7 +435,7 @@ func (s *TransferService) startLoop() {
 				if !s.endpointEnable.Load() {
 					err := s.endpoint.Ping()
 					if err != nil {
-						log.Println("destination not available,see the log file for details")
+						logs.Warn("destination not available, see the log file for details")
 						logs.Error(err.Error())
 					} else {
 						s.endpointEnable.Store(true)

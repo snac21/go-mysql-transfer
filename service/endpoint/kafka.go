@@ -22,7 +22,6 @@
 package endpoint
 
 import (
-	"log"     // 标准日志
 	"strings" // 字符串处理
 
 	"github.com/IBM/sarama"                  // Kafka客户端库
@@ -129,7 +128,7 @@ func (s *KafkaEndpoint) Consume(from mysql.Position, rows []*model.RowRequest) e
 			// 使用Lua脚本构建消息
 			ls, err := s.buildMessages(row, rule)
 			if err != nil {
-				log.Println("Lua 脚本执行失败!!! ,详情请参见日志")
+				logs.Error("Lua 脚本执行失败!!! ,详情请参见日志")
 				return errors.Errorf("lua 脚本执行失败 : %s ", errors.ErrorStack(err))
 			}
 			ms = append(ms, ls...) // 添加Lua脚本生成的多个消息

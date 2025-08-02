@@ -19,7 +19,6 @@ package global
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -242,11 +241,34 @@ func checkConfig(c *Config) error {
 
 	if c.LoggerConfig == nil {
 		c.LoggerConfig = &logs.Config{
-			Store: filepath.Join(c.DataDir, "log"),
+			Level:    logs.DefaultLogLevel,
+			Store:    filepath.Join(c.DataDir, "log"),
+			FileName: logs.DefaultLogFileName,
+			MaxSize:  logs.DefaultMaxSize,
+			MaxAge:   logs.DefaultMaxAge,
+			Compress: false,
+			Encoding: logs.DefaultEncoding,
 		}
 	}
+
+	// 设置默认值（如果配置文件中没有指定）
 	if c.LoggerConfig.Store == "" {
 		c.LoggerConfig.Store = filepath.Join(c.DataDir, "log")
+	}
+	if c.LoggerConfig.Level == "" {
+		c.LoggerConfig.Level = logs.DefaultLogLevel
+	}
+	if c.LoggerConfig.FileName == "" {
+		c.LoggerConfig.FileName = logs.DefaultLogFileName
+	}
+	if c.LoggerConfig.MaxSize <= 0 {
+		c.LoggerConfig.MaxSize = logs.DefaultMaxSize
+	}
+	if c.LoggerConfig.MaxAge <= 0 {
+		c.LoggerConfig.MaxAge = logs.DefaultMaxAge
+	}
+	if c.LoggerConfig.Encoding == "" {
+		c.LoggerConfig.Encoding = logs.DefaultEncoding
 	}
 
 	if err := files.MkdirIfNecessary(c.LoggerConfig.Store); err != nil {
@@ -305,10 +327,10 @@ func checkClusterConfig(c *Config) error {
 	}
 
 	if c.IsZk() {
-		log.Println("cluster by Zookeeper")
+		logs.Info("cluster by Zookeeper")
 	}
 	if c.IsEtcd() {
-		log.Println("cluster by Etcd")
+		logs.Info("cluster by Etcd")
 	}
 
 	return nil
