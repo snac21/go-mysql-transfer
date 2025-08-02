@@ -198,10 +198,40 @@ func (s *handler) OnPosSynced(header *replication.EventHeader, pos mysql.Positio
 			pos.Name, pos.Pos, force, timestamp, set)
 	}
 
-	// 这里可以实现自定义的位置同步逻辑，如：
-	// 1. 将位置信息同步到外部系统
-	// 2. 触发位置检查点
-	// 3. 更新监控指标
+	// 检查端点状态，确保数据一致性
+	// 只有在端点正常时才保存位置，避免位置与实际数据传输状态不一致
+	if !_transferService.endpointEnable.Load() {
+		logs.Warnf("端点已禁用，跳过位置同步: binlog=%s, force=%t", pos.String(), force)
+		// 端点禁用时不保存位置，避免数据不一致
+		// 等待端点恢复后，Canal会重新从上次正确保存的位置开始
+		return nil
+	}
+
+	// 双重保障机制：
+	// 1. 对于强制同步或重要事件，直接保存位置
+	// 2. 对于普通事件，通过队列机制处理，避免频繁I/O
+	// force为true的情况：
+	// 启动阶段：前几分钟可能每隔几秒就有一次force=true
+	// 稳定运行：通常每几分钟出现一次force=true
+	// 空闲期间：长时间无数据变更时，定期出现force=true
+	if force {
+		// 强制同步时直接保存，确保关键位置不丢失
+		if err := _transferService.positionDao.Save(pos); err != nil {
+			logs.Errorf("强制保存同步位置信息失败: %v", err)
+			return errors.Errorf("强制保存同步位置信息失败: %v", err)
+		}
+		logs.Infof("强制位置信息已同步保存: binlog=%s", pos.String())
+	} else {
+		// 非强制同步通过队列处理，利用现有的批量和节流机制
+		s.queue <- model.PosRequest{
+			Name:  pos.Name,
+			Pos:   pos.Pos,
+			Force: false, // 非强制，允许批量处理
+		}
+		logs.Debugf("位置同步请求已加入队列: binlog=%s", pos.String())
+	}
+
+	// todo update set mysql.GTIDSet（如果启用了 GTID）
 
 	return nil
 }
